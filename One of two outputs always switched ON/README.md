@@ -51,7 +51,7 @@ Two identical backup servers are changing online once a week according to change
 **Warning:** This will overwrite all Schedules and other Actions (LUA script) which are set in the device.
 
 1. Go to the TAB: Settings -> System
-2. Select a configuration file with "Browse"
+2. Select a configuration file with "Browse" and select **One_of_two_outputs_always_switched_on.xml** file
 3. Click on "Import configuration"
 4. Check Actions TAB if a new rule is there with correct settings
 5. Restart Device
