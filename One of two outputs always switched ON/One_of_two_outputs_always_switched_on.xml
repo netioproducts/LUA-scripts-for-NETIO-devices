@@ -1,0 +1,133 @@
+<config><systemInfo><exportFormatVersion>1.0</exportFormatVersion>
+<firmware><version>3.3.1</version>
+<extraVersion/>
+<revision>nb20e524</revision>
+<commitTime>2019-06-06 19:20:42 +0200</commitTime>
+<buildDate>2019-06-15</buildDate>
+</firmware><device><platform>netio4c-all-stm</platform>
+<variant>nextgen1</variant>
+<prettyPlatformName>PowerPDU 4C</prettyPlatformName>
+<serialNumber>24:A4:2C:39:31:FE</serialNumber>
+<hardwareRevision>39</hardwareRevision>
+</device></systemInfo><schedule><schedule active="true" id="1"><name>Always</name>
+<intervals><interval day="7" timeFrom="00:00" timeTo="24:00"/></intervals></schedule><schedule active="false" id="3"><name>Weekend</name>
+<intervals><interval day="9" timeFrom="00:00" timeTo="24:00"/></intervals></schedule><schedule active="true" id="2"><name>Work days</name>
+<intervals><interval day="8" timeFrom="00:00" timeTo="24:00"/></intervals></schedule></schedule><rule><rule id="3"><name>Weekly change</name>
+<description>Weekly change</description>
+<template/>
+<version>2</version>
+<code>local changeDay = 2 -- [1-7] (Monday 1, Sunday 7)
+local output1 = 1 -- [1-4]
+local output2 = 2 -- [1-4]
+local timeOFF = "10:00" -- [00:00 - 23:59]
+local timeON = "10:30" -- [00:00 - 23:59]
+
+--------- Do not change ---------
+local changedON = 0
+local changedOFF = 0
+local reseted = 1
+local outputON = output1
+local outputOFF = output2
+timeON = 60*60*tonumber(timeON:sub(1,2)) + 60*tonumber(timeON:sub(4,5))
+timeOFF = 60*60*tonumber(timeOFF:sub(1,2)) + 60*tonumber(timeOFF:sub(4,5))
+
+local day = tonumber(os.date("%w"))
+local hour = os.date("%H")
+local minute = os.date("%M")
+local time = 60*60*hour+60*minute
+local tmp = 0
+
+function checkDay()
+  -- Load time values
+  day = tonumber(os.date("%w"))
+  -- Change Sunday value to 7
+  if day == 0 then
+    day = 7
+  end
+  hour = os.date("%H")
+  minute = os.date("%M")
+  time = 60*60*hour+60*minute
+  -- Turn output ON
+  if (day == changeDay and changedON == 0 and time&gt;=timeON) then
+    logf("Turning output %d ON",outputOFF)
+    -- Turn output ON
+    devices.system.SetOut{output=outputOFF,value=1}
+    -- Check if othter output is on, if yes, turn it off
+    if (devices.system["output" ..outputON.. "_state"] == 'on') then
+        devices.system.SetOut{output=outputON,value=0}
+        changedOFF = 1
+      end
+    changedON = 1
+    reseted = 0
+  -- Turn output OFF
+  elseif (day == changeDay and changedOFF == 0 and time &gt;= timeOFF) then
+    logf("Turning output %d OFF",outputON)
+    -- Turn output OFF
+    devices.system.SetOut{output=outputON,value=0}
+    changedOFF = 1
+    reseted = 0
+  end
+  -- Next day allow changes for next week
+  if (day == (changeDay+1)%7 and reseted == 0) then
+    log("New day,swaping output states")
+    changedON = 0
+    changedOFF = 0
+    reseted = 1
+    -- Change outputs
+    tmp = outputON
+    outputON = outputOFF
+    outputOFF = tmp
+  end
+  delay(10,function() checkDay() end)
+end
+
+function startScript()
+  -- Load initial states of outputs or set them if they are not valid
+
+  -- Load initial values
+  local initState1 = devices.system["output" ..output1.. "_state"]
+  local initState2 = devices.system["output" ..output2.. "_state"]
+
+-- Both are turned ON or OFF
+  if ((initState1=='on' and initState2=='on') or (initState1=='off' and initState2=='off')) then
+    -- Turn output1 on and output2 off
+    logf("Both outputs are in the same state, turning output %d ON and output %d OFF",output1,output2)
+    devices.system.SetOut{output=output1,value=1}
+    devices.system.SetOut{output=output2,value=0}
+    outputON = output1
+    outputOFF = output2
+  -- One of them is turned on, second is turned off
+  else
+    if initState1 == 'on' then
+      outputON = output1
+      outputOFF = output2
+    else
+      outputON = output2
+      outputOFF = output1
+    end
+  end
+
+  -- If its change day don't swap states again
+  day = tonumber(os.date("%w"))
+  -- Change Sunday value to 7
+  if day == 0 then
+    day = 7
+  end
+  hour = os.date("%H")
+  minute = os.date("%M")
+  time = 60*60*hour+60*minute
+
+  if (day == changeDay and (time&gt;=timeOFF or time&gt;=timeON)) then
+    changedON = 1
+    changedOFF = 1
+  end
+
+  checkDay()
+end
+
+log("Script started")
+delay(10,function() startScript() end)</code>
+<status>enabled</status>
+<trigger trigger="event"><device>system</device>
+<event>SystemStarted</event>
+<schedules><schedule id="1"/></schedules></trigger></rule></rule></config>
